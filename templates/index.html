@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+<head>
+    <title>Crop Image</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.0/css/bootstrap.min.css">
+    <style>
+        .col {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <h1 class="mb-4">Crop Image</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <div class="col">
+                    <h2>Select Image</h2>
+                    <form id="cropForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select image:</label>
+                            <input type="file" name="file" id="file" class="form-control-file" onchange="previewImage(event)">
+                        </div>
+                        <div class="mb-3" id="imagePreview"></div>
+                        <div class="mb-3" id="cropOptions" style="display: none;">
+                            <label for="position" class="form-label">Crop position:</label>
+                            <select name="position" id="position" class="form-select">
+                                <option value="top_left">Top Left</option>
+                                <option value="top_center">Top Center</option>
+                                <option value="top_right">Top Right</option>
+                                <option value="center_left">Center Left</option>
+                                <option value="center">Center</option>
+                                <option value="center_right">Center Right</option>
+                                <option value="bottom_left">Bottom Left</option>
+                                <option value="bottom_center">Bottom Center</option>
+                                <option value="bottom_right">Bottom Right</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="sizeInput" style="display: none;">
+                            <label for="size" class="form-label">Crop size:</label>
+                            <input type="number" name="size" id="size" class="form-control" min="1" value="100">
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="cropImage()">Crop</button>
+                    </form>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="col">
+                    <h2>Cropped Result</h2>
+                    <div id="croppedImage"></div>
+                    <div class="d-flex justify-content-around mt-4">
+                        <button class="btn btn-primary download-btn" id="downloadMarkdownBtn" onclick="saveAsMarkdown()" style="display: none;">Download Markdown</button>
+                        <button class="btn btn-primary download-btn" id="downloadImageBtn" onclick="saveAsImage()" style="display: none;">Download Cropped Image</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function previewImage(event) {
+            // Fungsi ini dipanggil saat gambar dipilih untuk preview sebelum dicrop.
+            var reader = new FileReader();
+            reader.onload = function() {
+                // Ketika FileReader selesai membaca gambar, fungsi ini akan dijalankan.
+                var imgElement = document.createElement("img");
+                imgElement.src = reader.result; // Mengatur sumber gambar untuk elemen img yang dibuat.
+                imgElement.style.maxWidth = "500px"; // Mengatur lebar maksimum gambar menjadi 500px.
+                document.getElementById("imagePreview").innerHTML = ""; // Menghapus konten sebelumnya di elemen dengan id "imagePreview".
+                document.getElementById("imagePreview").appendChild(imgElement); // Menambahkan elemen img ke dalam elemen dengan id "imagePreview".
+                document.getElementById("cropOptions").style.display = "block"; // Menampilkan opsi pemangkasan.
+                document.getElementById("sizeInput").style.display = "block"; // Menampilkan input ukuran pemangkasan.
+                document.getElementById("size").max = Math.min(imgElement.naturalWidth, imgElement.naturalHeight); // Menetapkan nilai maksimum input ukuran sesuai dengan dimensi gambar.
+            }
+            reader.readAsDataURL(event.target.files[0]); // Membaca data gambar yang dipilih sebagai URL data.
+        }
+
+        function cropImage() {
+            // Fungsi ini dipanggil saat tombol "Crop" diklik.
+            var sizeInput = document.getElementById("size");
+            var size = parseInt(sizeInput.value, 10); // Mengambil nilai ukuran pemangkasan dari input dan mengkonversinya menjadi integer.
+            var imgElement = document.getElementById("imagePreview").querySelector("img"); // Mengambil elemen img dari elemen dengan id "imagePreview".
+            var maxWidth = imgElement.naturalWidth; // Lebar maksimum gambar asli.
+            var maxHeight = imgElement.naturalHeight; // Tinggi maksimum gambar asli.
+
+            if (size > maxWidth || size > maxHeight) {
+                // Jika ukuran pemangkasan melebihi ukuran gambar asli, tampilkan pesan kesalahan.
+                alert("Crop size cannot exceed the image size.");
+                return;
+            }
+
+            var formElement = document.getElementById("cropForm"); // Mengambil elemen form dengan id "cropForm".
+            var formData = new FormData(formElement); // Membuat objek FormData dari elemen form.
+
+            var xhr = new XMLHttpRequest(); // Membuat objek XMLHttpRequest untuk melakukan permintaan HTTP.
+            xhr.open("POST", "/", true); // Membuka koneksi ke URL "/" menggunakan metode POST.
+            xhr.onreadystatechange = function() {
+                // Fungsi ini dipanggil ketika status permintaan berubah.
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    // Jika permintaan selesai dan berhasil, jalankan blok kode berikut.
+                    var imgElement = document.createElement("img");
+                    imgElement.src = "data:image/jpeg;base64," + xhr.responseText; // Mengatur sumber gambar hasil pemangkasan.
+                    imgElement.style.maxWidth = "500px"; // Mengatur lebar maksimum gambar menjadi 500px.
+                    document.getElementById("croppedImage").innerHTML = ""; // Menghapus konten sebelumnya di elemen dengan id "croppedImage".
+                    document.getElementById("croppedImage").appendChild(imgElement); // Menambahkan elemen img ke dalam elemen dengan id "croppedImage".
+                    document.getElementById("downloadMarkdownBtn").style.display = "inline-block"; // Menampilkan tombol "Download Markdown".
+                    document.getElementById("downloadImageBtn").style.display = "inline-block"; // Menampilkan tombol "Download Cropped Image".
+                }
+            };
+            xhr.send(formData); // Mengirim permintaan dengan data FormData yang berisi gambar yang dipangkas.
+        }
+
+        function saveAsMarkdown() {
+            // Fungsi ini dipanggil saat tombol "Download Markdown" diklik.
+            var fileName = "crop_image.md"; // Nama file yang akan diunduh.
+            var markdownContent = `# Crop Image
+## Selected Image:
+![Selected Image](data:image/jpeg;base64,${getImageBase64("imagePreview")})
+## Crop Position:
+- ${document.getElementById("position").value}
+## Crop Size:
+- ${document.getElementById("size").value}
+## Cropped Image:
+![Cropped Image](data:image/jpeg;base64,${getImageBase64("croppedImage")})`;
+
+            var element = document.createElement('a'); // Membuat elemen anchor <a> untuk mengunduh file.
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(markdownContent)); // Mengatur atribut href dengan data URL dari konten Markdown.
+            element.setAttribute('download', fileName); // Mengatur atribut download dengan nama file.
+            element.style.display = 'none'; // Menyembunyikan elemen anchor.
+            document.body.appendChild(element); // Menambahkan elemen anchor ke dalam elemen <body>.
+            element.click(); // Mengklik elemen anchor secara otomatis.
+            document.body.removeChild(element); // Menghapus elemen anchor dari elemen <body>.
+        }
+
+        function saveAsImage() {
+            // Fungsi ini dipanggil saat tombol "Download Cropped Image" diklik.
+            var fileName = "cropped_image.jpg"; // Nama file yang akan diunduh.
+            var imgSrc = document.getElementById("croppedImage").querySelector("img").src; // Mengambil URL gambar hasil pemangkasan.
+            var element = document.createElement('a'); // Membuat elemen anchor <a> untuk mengunduh file.
+            element.setAttribute('href', imgSrc); // Mengatur atribut href dengan URL gambar.
+            element.setAttribute('download', fileName); // Mengatur atribut download dengan nama file.
+            element.style.display = 'none'; // Menyembunyikan elemen anchor.
+            document.body.appendChild(element); // Menambahkan elemen anchor ke dalam elemen <body>.
+            element.click(); // Mengklik elemen anchor secara otomatis.
+            document.body.removeChild(element); // Menghapus elemen anchor dari elemen <body>.
+        }
+
+        function getImageBase64(elementId) {
+            // Fungsi ini mengembalikan basis data gambar dalam format base64 dari elemen dengan ID tertentu.
+            return document.getElementById(elementId).querySelector("img").src.split(",")[1];
+        }
+    </script>
+</body>
+</html>
